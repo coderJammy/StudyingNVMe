@@ -14,9 +14,9 @@ NVM Express协议描述了如何通过寄存器接口访问NVM子系统，并定
 
 ##1.2 (字母，词组，缩写等)定义
 
-	* Admin Queue ： 管理队列。指ID为0的提交队列(Submision Queue)和完成队列(Completion Queue)。或称为Amdin Submision Queue和Amdin Completion Queue。主机通过此队列发送Admin命令和接收命令状态。
+	*Admin Queue ： 管理队列。指ID为0的提交队列(Submision Queue)和完成队列(Completion Queue)。或称为Amdin Submision Queue和Amdin Completion Queue。主机通过此队列发送Admin命令和接收命令状态。
 
-	* arbitration burst : 提交队列一次可提交的最大命令个数。
+	*arbitration burst : 提交队列一次可提交的最大命令个数。
 
 
 #2 控制器寄存器(Controller Registers)
@@ -39,7 +39,7 @@ Controller Registers是一段存储器空间，可以接次序访问或按变量
 	|0x1000+y|0x1003+y| CQn Head Doorbell
 	+--------+--------+-------------------------------
 
-	~~~{.c}
+~~~{.c}
 	struct nvme_bar {
 		__u64			cap;	/* Controller Capabilities */
 		__u32			vs;	/* Version */
@@ -53,4 +53,4 @@ Controller Registers是一段存储器空间，可以接次序访问或按变量
 		__u64			asq;	/* Admin SQ Base Address */
 		__u64			acq;	/* Admin CQ Base Address */
 	};
-	~~~
+~~~
