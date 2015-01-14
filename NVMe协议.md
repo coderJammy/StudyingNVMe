@@ -25,7 +25,34 @@ Controller Registers是一段存储器空间，可以接次序访问或按变量
 
 ##2.1 寄存器定义
 
-![寄存器定义](figures/controller_registers.jpg)
+	0x0000 +--------------------------+
+	       |    BAR                   |
+	       |                          |
+	0x0038 +--------------------------+
+	       |    CMBLOC                |
+	0x003C +--------------------------+
+	       |    CMBSZ                 |
+	0x0040 +--------------------------+
+	       |    Reseved               |
+	0x0F00 +--------------------------+
+	       |    Command Set Specific  |
+	0x1000 +--------------------------+  ---
+	       |    SQ0 HDBL              |    \ Doorbell
+		   |                          |    / Stride
+	       +--------------------------+  ---
+	       |    CQ0 TDBL              |
+		   |                          |
+	       +--------------------------+ 
+		   ...               ...
+	       +--------------------------+ 
+	       |    SQn HDBL              |
+		   |                          |
+	       +--------------------------+
+	       |    CQn TDBL              |
+		   |                          |
+	       +--------------------------+
+
+其中BAR的定义如下：
 
 ~~~{.c}
 	struct nvme_bar {
@@ -188,7 +215,7 @@ SQnTDBL和CQnHDBL都是低16位有效的Entry Pointer。
 
 PRP和SGL用于指定数据，数据源或者数据缓冲存储区。
 
-###3.2.1 数据指针PRP (Physical Region Page)
+##3.3 数据指针PRP (Physical Region Page)
 PRP Entry是指向物理内存页(Physical Memory Page)的指针,关使用称为分散聚合(scatter/gather)的机制来组织数据。这些数据物理上可以不连续(*分散*)，使用分散聚合机制使其在逻辑上看起来是一块连续的内存空间(*聚合*)。
 PRP Entry 格式如下：
 
@@ -207,9 +234,12 @@ PRP表(PRP List)是指一组PRP Entries，这些PRP Entries位于同一个页内
 PRP表中的PRP Entry中，Offset应为0。到底会使用多少PRP Entries，是由命令的参数和页的大小共同决定。
 
 
-###3.2.2 数据指针SGL
+##3.4 数据指针SGL
 
 
+
+##3.5 Metadata Region
+Metadata可理解为关于数据的数据。Metadata即要作为逻辑数据扩展，也可单独传输。
 
 #4 NVM命令集
 
