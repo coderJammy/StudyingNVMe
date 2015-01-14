@@ -182,12 +182,29 @@ SQnTDBL和CQnHDBL都是低16位有效的Entry Pointer。
 	- nsid      : 命令要访问的Namespace ID.
 	- cdw2[2]   : reserved
 	- metadata  : metadata 指针
-	- prp       : data 指针。格式为PRP或者SGL。
+	- prp1      : data 指针。格式为PRP或者SGL。
+	- prp2      : data 指针。格式为PRP或者SGL。
 	- cdw10[6]  : 命令相关。不同的命令具有不同的意义。
 
 PRP和SGL用于指定数据，数据源或者数据缓冲存储区。
 
-###3.2.1 数据指针PRP
+###3.2.1 数据指针PRP (Physical Region Page)
+PRP Entry是指向物理内存页(Physical Memory Page)的指针,关使用称为分散聚合(scatter/gather)的机制来组织数据。这些数据物理上可以不连续(*分散*)，使用分散聚合机制使其在逻辑上看起来是一块连续的内存空间(*聚合*)。
+PRP Entry 格式如下：
+
+	|63                               n+1|n                    0|
+	+------------------------------------+------------------+-+-+
+	|         Page Base Address          |      Offset      |0|0|
+	+------------------------------------+------------------+-+-+
+
+PRP Entry长度为8bytes，由页基址(Page Base Address)和页内偏移量(Offset)组成，最低两位固定为0。n的大小取决于页的大小，Page Size为4K时，n=11，8k则为12。下列两种情况下，Offset必须为0：
+
+	1 不是第一个PRP Entry
+	2 指向的是一个PRP List
+
+PRP表(PRP List)是指一组PRP Entries，这些PRP Entries位于同一个页内连续空间内。一条命令中，一个PRP Entry无法描述所有的数据时，PRP Entry便指向一个PRP List，PRP List内有更多有PRP Entries来描述数据。所一个PRP List也无法描述所有数据，则PRP list在页内的最后一PRP Entry指向另外一个PRP List，以此类推。
+
+PRP表中的PRP Entry中，Offset应为0。到底会使用多少PRP Entries，是由命令的参数和页的大小共同决定。
 
 
 ###3.2.2 数据指针SGL
