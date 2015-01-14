@@ -2,7 +2,7 @@
 
 #文档说明
 
-本文可以看做是对[NVME1.2版协议][1]的研读笔记，部分段落是协议原文的直接翻译。一些数据格式则是直接以C语言结构体的形式呈现。
+本文可以看做是对[NVME1.2版协议][1]的研读笔记，部分段落是协议原文的直接翻译。一些数据格式则是直接以C语言结构体的形式呈现。大部分示例代码从Linux和QEMU复制而来。
 
 
 #1 NVM Express协议是什么？
@@ -101,8 +101,65 @@ AMS，MPS，CSS域应在使能EN位之前配置。
 	- CFS    : 标志位。为1时表示有致命错误发生。
 	- RDY    : 标志位。为1时表示准备好接收并处理命令。
 
-
 CC.EN清零时CSTS.RDY也应清零。
 
+###2.1.7 NSR (NVM Subsystem Reset)
+向此寄存器写0x4E564D65("NVMe")会引发一个NVM子系统复位。写其它值时无效果，读为0。
 
+###2.1.8 AQA (Admin Queue Attribute)
+定义Admin SQ和Admin CQ的属性。属性列表如下：
+
+	- ACQS  : Admin CQ Size;即命令队列的深度(Entry)。最小为1最大为4095(0's based)。
+	- ASQS  : Admin SQ Size;见ACQS
+
+###2.1.9 ASQ (Admin SQ Base Address)
+Admin SQ的64位物理地址。这个地址应Memory Page对齐（见2.1.5 CC.MPS）。
+
+###2.1.10 ACQ (Admin CQ Base Address)
+Admin CQ的64位物理地址。这个地址应Memory Page对齐（见2.1.5 CC.MPS）。
+
+###2.1.11 CMBLOC (Controller Memory Buffer Location)
+定义了控制器Memory Buffer的地址。为0时则无效。
+
+###2.1.12 CMBSZ (Controller Memory Buffer Size)
+定义了控制器Memory Buffer的大小。如不支持则此寄存器值为0。
+关于Controller Memory Buffer，请参考另外的一文()。
+
+###2.1.13 SQnTDBL (SQ n Tail Doorbell)
+###2.1.14 CQnHDBL (CQ n Head Doorbell)
+SQnTDBL和CQnHDBL都是低16位有效的Entry Pointer。
+
+
+#4 NVM命令集
+
+##4.1 Admin Command
+
+~~~{.c}
+/* Admin commands */
+enum nvme_admin_opcode {
+	nvme_admin_delete_sq		= 0x00,
+	nvme_admin_create_sq		= 0x01,
+	nvme_admin_get_log_page		= 0x02,
+	nvme_admin_delete_cq		= 0x04,
+	nvme_admin_create_cq		= 0x05,
+	nvme_admin_identify		= 0x06,
+	nvme_admin_abort_cmd		= 0x08,
+	nvme_admin_set_features		= 0x09,
+	nvme_admin_get_features		= 0x0a,
+	nvme_admin_async_event		= 0x0c,
+	nvme_admin_activate_fw		= 0x10,
+	nvme_admin_download_fw		= 0x11,
+	nvme_admin_format_nvm		= 0x80,
+	nvme_admin_security_send	= 0x81,
+	nvme_admin_security_recv	= 0x82,
+};
+~~~
+
+###4.1.1 Identify
+
+###4.1.2 创建I/O完成队列(Create I/O Completion Queue Command)
+
+
+
+##4.2 I/O Command
 
