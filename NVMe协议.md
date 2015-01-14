@@ -129,6 +129,70 @@ Admin CQ的64位物理地址。这个地址应Memory Page对齐（见2.1.5 CC.MP
 ###2.1.14 CQnHDBL (CQ n Head Doorbell)
 SQnTDBL和CQnHDBL都是低16位有效的Entry Pointer。
 
+#3 内存结构 Memory Structures
+内存结构位于主机内存当中，若控制器支持Controller Memory Buffer，内存结构也可能位于控制器内存当中。
+
+##3.1 队列
+下面的图展示了一个空的队列和一个满的队列。队列的大小(深度)指队列的Entry个数。对于I/O CQ和I/O SQ，队列深度最大为65536，对Admin CQ和Admin SQ队列深度最大为4096。
+
+	                +---+<--Address Queue Base     +---+<--Address Queue Base     
+	                | E |                          | O |
+	                +---+                          +---+
+	                +---+                          +---+
+	   Head-------->| E |<--Tail(Producer)	       | E |<--Tail(Producer)
+	  (Consumer)    +---+                          +---+
+	                +---+                          +---+
+	                | E |             Head-------->| O |
+	                +---+            (Consumer)    +---+
+	                 ...                            ...
+	                +---+                          +---+
+	                | E |                          | O |
+	                +---+                          +---+
+	                +---+                          +---+
+	                | E |                          | O |
+	                +---+                          +---+
+				An Empty Queue                  A Full Queue
+
+	       +---+                         +---+
+	       | E |   An Empty Entry;       | O |   An Occupied Entry;
+	       +---+                         +---+
+										
+##3.2 SQ Entry-Command Format
+每一条SQ Entry即为一条命令，由64 bytes组成。格式如下：
+
+~~~{.c}
+	struct nvme_common_command {
+		__u8			opcode;
+		__u8			flags;
+		__u16			command_id;
+		__le32			nsid;
+		__le32			cdw2[2];
+		__le64			metadata;
+		__le64			prp1;
+		__le64			prp2;
+		__le32			cdw10[6];
+	};
+~~~
+
+其中：
+	
+	- opcode    : 操作命令字。见NVM命令集定义。
+	- flags     : 标志位，PRP或SGL使用，FUSE指示等。
+	- command_id: 命令ID，主机会分配一个唯一的ID，命令完成后在CQ中会对应ID的Entry。
+	- nsid      : 命令要访问的Namespace ID.
+	- cdw2[2]   : reserved
+	- metadata  : metadata 指针
+	- prp       : data 指针。格式为PRP或者SGL。
+	- cdw10[6]  : 命令相关。不同的命令具有不同的意义。
+
+PRP和SGL用于指定数据，数据源或者数据缓冲存储区。
+
+###3.2.1 数据指针PRP
+
+
+###3.2.2 数据指针SGL
+
+
 
 #4 NVM命令集
 
