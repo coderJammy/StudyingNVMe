@@ -241,6 +241,35 @@ PRP表中的PRP Entry中，Offset应为0。到底会使用多少PRP Entries，�
 ##3.5 Metadata Region
 Metadata可理解为关于数据的数据。Metadata即要作为逻辑数据扩展，也可单独传输。
 
+##3.6 CQ Entry
+CQ Entry 长度为16bytes，格式如下:
+
+	    |31                    |15                  0|
+	    +--------------------------------------------+
+	DW0 |        Command Specific                    |
+	    +--------------------------------------------+
+	DW1 |        Reserved                            |
+	    +----------------------+---------------------+
+	DW2 |    SQ Identifier     |  SQ Head Pointer    |
+	    +--------------------+-+---------------------+
+	DW3 |    Status Field    |P|  Command Identifier |
+	    +--------------------+-+---------------------+
+
+C语言抽象如下(Copied from Linux Kernel source code)：
+
+~~~{.c}
+struct nvme_completion {
+	__le32	result;		/* Used by admin commands to return data */
+	__u32	rsvd;
+	__le16	sq_head;	/* how much of this queue may be reclaimed */
+	__le16	sq_id;		/* submission queue that generated this entry */
+	__u16	command_id;	/* of the command which completed */
+	__le16	status;		/* did the command fail, and if so, why? */
+};
+~~~
+
+
+
 #4 NVM命令集
 
 ##4.1 Admin Command
