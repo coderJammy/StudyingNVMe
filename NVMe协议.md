@@ -453,7 +453,40 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 
 
 ###4.1.5 NVM设备如何处理Identify命令
+以QEMU为例:
 
+~~~(.c)
+
+	static uint16_t nvme_identify(NvmeCtrl *n, NvmeCmd *cmd)
+	{
+	    NvmeNamespace *ns;
+	    NvmeIdentify *c = (NvmeIdentify *)cmd;
+	    uint32_t cns  = le32_to_cpu(c->cns);
+	    uint32_t nsid = le32_to_cpu(c->nsid);
+	    uint64_t prp1 = le64_to_cpu(c->prp1);
+	    uint64_t prp2 = le64_to_cpu(c->prp2);
+	
+	    if (cns) {
+	        return nvme_dma_read_prp(n, (uint8_t *)&n->id_ctrl, sizeof(n->id_ctrl),
+	            prp1, prp2);
+	    }
+	    if (nsid == 0 || nsid > n->num_namespaces) {
+	        return NVME_INVALID_NSID | NVME_DNR;
+	    }
+	
+	    ns = &n->namespaces[nsid - 1];
+	    return nvme_dma_read_prp(n, (uint8_t *)&ns->id_ns, sizeof(ns->id_ns),
+	        prp1, prp2);
+	}
+~~~
+
+上列代码可知，NVM设备处理Identify流程如下：
+
+	1. 收到命令，提取命令信息
+	2. 如果是读Controller Identify Data，则读取数据并返回，否则继续3
+	3. 检查命令是否有效，有效则返回Namespace Identify Data
+
+关于Controller Identify Data和Namespace Identify Data则存于设备内存中，在设备启动或复位时进行初始化。
 
 
 ##4.2 创建I/O完成队列(Create I/O Completion Queue Command)
