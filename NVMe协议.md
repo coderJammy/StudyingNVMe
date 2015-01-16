@@ -315,7 +315,7 @@ Identify命令格式如下：
 	};
 ~~~
 
-Identify命令可读取三类数据，由cns(Controller of Namespace Structure)值决定：
+Identify命令可读取三类数据，由cns(Controller or Namespace Structure)值决定：
 
 	- cns=0x00 : Controller Identify Data
 	- cns=0x01 : Namespace Identify Data
