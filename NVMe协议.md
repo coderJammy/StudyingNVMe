@@ -321,7 +321,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	- cns=0x01 : Namespace Identify Data
 	- cns=0x02 : Namespace List
 
-###4.1.1 Controller Identify Data
+###4.1.1 Controller Identify Struture
 
 ~~~{.c}
 	
@@ -371,8 +371,34 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	};
 ~~~
 
-###4.1.2 Namespace Identify Data
+###4.1.2 Namespace Identify Struture
 
+~~~{.c}
+
+	struct nvme_id_ns {
+		__le64			nsze;		/* Namespace Size (in logical blocks)*/
+		__le64			ncap;		/* Namespace Capacity */
+		__le64			nuse;		/* Namespace Utilization*/
+		__u8			nsfeat;		/* Namespace Features*/
+		__u8			nlbaf;		/* Number of LBA Formats*/
+		__u8			flbas;		/* Formatted LBA Size*/
+		__u8			mc;			/* Metadata Capabilities*/
+		__u8			dpc;		/* End-to-end Data Protection Capabilities*/
+		__u8			dps;		/* End-to-end Data Protection Type Setting */
+		__u8			nmic;		/* Multi-path I/O and Namespace Sharing Capabilities*/
+		__u8			rescap;		/* Reservation Capabilities*/
+		__u8			fpi;		/* Format Progress Indicator*/
+		__u8			rsvd33;
+		__le16			nawun;		/* Namespace Atomic Write Unit Normal*/
+		__le16			nawupf;		/* Namespace Atomic Write Unit Power Fail*/
+		__le16			nacwu;		/* Namespace Atomic Compare & Write Unit*/
+		__u8			rsvd40[80];
+		__u8			eui64[8];	/* IEEE Extended Unique Identifier*/
+		struct nvme_lbaf	lbaf[16];/* list of LBA Format Support*/
+		__u8			rsvd192[192];
+		__u8			vs[3712];	/* Vendor Specific*/
+	};
+~~~
 
 ###4.1.3 Namespace List
 
