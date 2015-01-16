@@ -326,48 +326,48 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 ~~~{.c}
 	
 	struct nvme_id_ctrl {
-		__le16			vid;		/* Vendor ID assigned by the PCI SIG*/
-		__le16			ssvid;
-		char			sn[20];
-		char			mn[40];
-		char			fr[8];
-		__u8			rab;
-		__u8			ieee[3];
-		__u8			mic;
-		__u8			mdts;
-		__u16			cntlid;
-		__u32			ver;
+		__le16			vid;		/* Vendor ID assigned by the PCI SIG */
+		__le16			ssvid;		/* Vendor ID for subsystem */
+		char			sn[20];		/* Serial Number as an ASCII string */
+		char			mn[40];		/* Model Number */
+		char			fr[8];		/* (Currently acttive) Firmware Revision*/
+		__u8			rab;		/* Recommended Arbitration Burst */
+		__u8			ieee[3];	/* OUI for the controller verdor */
+		__u8			mic;		/* Multi-Path I/O and Namespace Sharing Capabilites */
+		__u8			mdts;		/* Maxmum Data Transfer Size (2^mdts)*/
+		__u16			cntlid;		/* Unique Controller ID*/
+		__u32			ver;		/* (NVMe Spec) Version */
 		__u8			rsvd84[172];
-		__le16			oacs;
-		__u8			acl;
-		__u8			aerl;
-		__u8			frmw;
-		__u8			lpa;
-		__u8			elpe;
-		__u8			npss;
-		__u8			avscc;
-		__u8			apsta;
-		__le16			wctemp;
-		__le16			cctemp;
+		__le16			oacs;		/* Optioan Asynchronous Command Supported */
+		__u8			acl;		/* Abort Command Limit */
+		__u8			aerl;		/* Asynchronous Event Request Limit */
+		__u8			frmw;		/* Firmware Updates*/
+		__u8			lpa;		/* Log Page Attribute */
+		__u8			elpe;		/* Error Log Page Entries */
+		__u8			npss;		/* Number of Power States Support */
+		__u8			avscc;		/* Admin Vendor Specific Command Configuration */
+		__u8			apsta;		/* Autonomous Power State Transition Attributes*/
+		__le16			wctemp;		/* Warning Composite Temperature Threshold */
+		__le16			cctemp;		/* Critical Composite Temperature Threshold*/
 		__u8			rsvd270[242];
-		__u8			sqes;
-		__u8			cqes;
+		__u8			sqes;		/* SQ Entry Size*/
+		__u8			cqes;		/* CQ Entry Size*/
 		__u8			rsvd514[2];
-		__le32			nn;
-		__le16			oncs;
-		__le16			fuses;
-		__u8			fna;
-		__u8			vwc;
-		__le16			awun;
-		__le16			awupf;
-		__u8			nvscc;
+		__le32			nn;			/* Number of Namespace*/
+		__le16			oncs;		/* Optional NVM Command Support */
+		__le16			fuses;		/* Fused Operation Support*/
+		__u8			fna;		/* Format NVM Attributes*/
+		__u8			vwc;		/* Volatile Write Cache */
+		__le16			awun;		/* Atomic Write Unit Normal*/
+		__le16			awupf;		/* Atomic Write Unit Power Fail */
+		__u8			nvscc;		/* NVM Vendor Specific Command Configuration */
 		__u8			rsvd531;
-		__le16			acwu;
+		__le16			acwu;		/* Atomic Compare & Write Unit*/
 		__u8			rsvd534[2];
-		__le32			sgls;
+		__le32			sgls;		/* SGL Support*/ 
 		__u8			rsvd540[1508];
-		struct nvme_id_power_state	psd[32];
-		__u8			vs[1024];
+		struct nvme_id_power_state	psd[32];/* Power State Descriptors*/
+		__u8			vs[1024];	/* Vendor Specific */
 	};
 ~~~
 
