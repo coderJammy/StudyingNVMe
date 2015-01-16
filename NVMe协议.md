@@ -455,7 +455,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 ###4.1.5 NVM设备如何处理Identify命令
 以QEMU为例:
 
-~~~(.c)
+~~~{.c}
 
 	static uint16_t nvme_identify(NvmeCtrl *n, NvmeCmd *cmd)
 	{
