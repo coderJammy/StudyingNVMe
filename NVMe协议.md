@@ -55,6 +55,7 @@ Controller Registers是一段存储器空间，可以接次序访问或按变量
 其中BAR的定义如下：
 
 ~~~{.c}
+
 	struct nvme_bar {
 		__u64			cap;	/* Controller Capabilities */
 		__u32			vs;		/* Version */
@@ -188,6 +189,7 @@ SQnTDBL和CQnHDBL都是低16位有效的Entry Pointer。
 每一条SQ Entry即为一条命令，由64 bytes组成。格式如下：
 
 ~~~{.c}
+
 	struct nvme_common_command {
 		__u8			opcode;
 		__u8			flags;
@@ -258,48 +260,179 @@ CQ Entry 长度为16bytes，格式如下:
 C语言抽象如下(Copied from Linux Kernel source code)：
 
 ~~~{.c}
-struct nvme_completion {
-	__le32	result;		/* Used by admin commands to return data */
-	__u32	rsvd;
-	__le16	sq_head;	/* how much of this queue may be reclaimed */
-	__le16	sq_id;		/* submission queue that generated this entry */
-	__u16	command_id;	/* of the command which completed */
-	__le16	status;		/* did the command fail, and if so, why? */
+
+	struct nvme_completion {
+		__le32	result;		/* Used by admin commands to return data */
+		__u32	rsvd;
+		__le16	sq_head;	/* how much of this queue may be reclaimed */
+		__le16	sq_id;		/* submission queue that generated this entry */
+		__u16	command_id;	/* of the command which completed */
+		__le16	status;		/* did the command fail, and if so, why? */
 };
 ~~~
 
 
-
-#4 NVM命令集
-
-##4.1 Admin Command
+#4 Admin Command
 
 ~~~{.c}
-/* Admin commands */
-enum nvme_admin_opcode {
-	nvme_admin_delete_sq		= 0x00,
-	nvme_admin_create_sq		= 0x01,
-	nvme_admin_get_log_page		= 0x02,
-	nvme_admin_delete_cq		= 0x04,
-	nvme_admin_create_cq		= 0x05,
-	nvme_admin_identify		= 0x06,
-	nvme_admin_abort_cmd		= 0x08,
-	nvme_admin_set_features		= 0x09,
-	nvme_admin_get_features		= 0x0a,
-	nvme_admin_async_event		= 0x0c,
-	nvme_admin_activate_fw		= 0x10,
-	nvme_admin_download_fw		= 0x11,
-	nvme_admin_format_nvm		= 0x80,
-	nvme_admin_security_send	= 0x81,
-	nvme_admin_security_recv	= 0x82,
-};
+
+	/* Admin commands */
+	enum nvme_admin_opcode {
+		nvme_admin_delete_sq		= 0x00,
+		nvme_admin_create_sq		= 0x01,
+		nvme_admin_get_log_page		= 0x02,
+		nvme_admin_delete_cq		= 0x04,
+		nvme_admin_create_cq		= 0x05,
+		nvme_admin_identify		= 0x06,
+		nvme_admin_abort_cmd		= 0x08,
+		nvme_admin_set_features		= 0x09,
+		nvme_admin_get_features		= 0x0a,
+		nvme_admin_async_event		= 0x0c,
+		nvme_admin_activate_fw		= 0x10,
+		nvme_admin_download_fw		= 0x11,
+		nvme_admin_format_nvm		= 0x80,
+		nvme_admin_security_send	= 0x81,
+		nvme_admin_security_recv	= 0x82,
+	};
 ~~~
 
-###4.1.1 Identify
+##4.1 Identify
+主机使用设备前，需首先获得设备的信息。Identify命令会从设备中读出4KB关于NVM子系统的数据。
+Identify命令格式如下：
 
-###4.1.2 创建I/O完成队列(Create I/O Completion Queue Command)
+~~~{.c}
+
+	struct nvme_identify {
+		__u8			opcode;
+		__u8			flags;
+		__u16			command_id;
+		__le32			nsid;
+		__u64			rsvd2[2];
+		__le64			prp1;
+		__le64			prp2;
+		__le32			cns;
+		__u32			rsvd11[5];
+	};
+~~~
+
+Identify命令可读取三类数据，由cns(Controller of Namespace Structure)值决定：
+
+	- cns=0x00 : Controller Identify Data
+	- cns=0x01 : Namespace Identify Data
+	- cns=0x02 : Namespace List
+
+###4.1.1 Controller Identify Data
+
+~~~{.c}
+	
+	struct nvme_id_ctrl {
+		__le16			vid;		/* Vendor ID assigned by the PCI SIG*/
+		__le16			ssvid;
+		char			sn[20];
+		char			mn[40];
+		char			fr[8];
+		__u8			rab;
+		__u8			ieee[3];
+		__u8			mic;
+		__u8			mdts;
+		__u16			cntlid;
+		__u32			ver;
+		__u8			rsvd84[172];
+		__le16			oacs;
+		__u8			acl;
+		__u8			aerl;
+		__u8			frmw;
+		__u8			lpa;
+		__u8			elpe;
+		__u8			npss;
+		__u8			avscc;
+		__u8			apsta;
+		__le16			wctemp;
+		__le16			cctemp;
+		__u8			rsvd270[242];
+		__u8			sqes;
+		__u8			cqes;
+		__u8			rsvd514[2];
+		__le32			nn;
+		__le16			oncs;
+		__le16			fuses;
+		__u8			fna;
+		__u8			vwc;
+		__le16			awun;
+		__le16			awupf;
+		__u8			nvscc;
+		__u8			rsvd531;
+		__le16			acwu;
+		__u8			rsvd534[2];
+		__le32			sgls;
+		__u8			rsvd540[1508];
+		struct nvme_id_power_state	psd[32];
+		__u8			vs[1024];
+	};
+~~~
+
+###4.1.2 Namespace Identify Data
+
+
+###4.1.3 Namespace List
+
+
+###4.1.4 HOST驱动如何发送Identify
+
+~~~{.c}
+
+	int nvme_identify(struct nvme_dev *dev, unsigned nsid, unsigned cns,
+								dma_addr_t dma_addr)
+	{
+		struct nvme_command c;
+	
+		memset(&c, 0, sizeof(c));
+		c.identify.opcode = nvme_admin_identify;
+		c.identify.nsid = cpu_to_le32(nsid);
+		c.identify.prp1 = cpu_to_le64(dma_addr);
+		c.identify.cns = cpu_to_le32(cns);
+	
+		return nvme_submit_admin_cmd(dev, &c, NULL);
+	}
+
+	static int nvme_dev_add(struct nvme_dev *dev)
+	{
+		...
+		struct nvme_id_ctrl *ctrl;
+		...
+	
+		res = nvme_identify(dev, 0, 1, dma_addr);
+	
+		...
+	
+		nn = le32_to_cpup(&ctrl->nn);
+		...
+		for (i = 1; i <= nn; i++) {
+			res = nvme_identify(dev, i, 0, dma_addr);
+	
+			...
+	
+		}
+	
+		...
+	
+		list_for_each_entry(ns, &dev->namespaces, list)
+			add_disk(ns->disk);
+	
+		...
+	}
+~~~
+
+可见，HOST会首先读取Controller Identify信息，从而获得NN(Number of Namespaces)信息，然后依次读取Namespace Identify信息。
+
+
+###4.1.5 NVM设备如何处理Identify命令
 
 
 
-##4.2 I/O Command
+##4.2 创建I/O完成队列(Create I/O Completion Queue Command)
+
+
+
+#5 I/O Command
 
