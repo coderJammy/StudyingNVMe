@@ -400,7 +400,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	};
 ~~~
 
-###4.1.3 Namespace List
+###4.1.3 Namespace List (spec 1.2)
 
 
 ###4.1.4 HOST驱动如何发送Identify
@@ -486,12 +486,52 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	2. 如果是读Controller Identify Data，则读取数据并返回，否则继续3
 	3. 检查命令是否有效，有效则返回Namespace Identify Data
 
-关于Controller Identify Data和Namespace Identify Data则存于设备内存中，在设备启动或复位时进行初始化。
+关于Controller Identify Data和Namespace Identify Data则存于设备内存中，在设备启动或复位时进行初始化，外更详细代码参见QEMU源码。
 
 
 ##4.2 创建I/O完成队列(Create I/O Completion Queue Command)
 
 
-
 #5 I/O Command
+
+
+#6 NVM控制器架构
+*本章多由翻译标准协议得来。详见 Page 161(7 Controller Architecture) of NVM_Express_1_2_Gold_20141103.pdf *
+
+##6.1 概述
+主机通过事先创建好的SQ(提交队列)向控制器发送命令，命令提交后SQ Tail Doorbell全向前推，此时controller会收到有新命令事件通知。controller的固件会保存一个Doorbell的值，与新Doorbell值比较可计算得到新命令的个数。
+
+控制器读取SQ中新命令并处理。除FUSED操作外，所有新命令的处理顺序没有限制，而数据的传输顺序也可能跟命令顺序不一样。
+
+命令本身没有优先级，SQ有优先级。所以命令的优先级取决于提交到哪一个SQ。
+
+命令处理完成后，controller把CQ Entry写入对应的CQ，并中断通知主机有命令完成(中断机制详见中断)。
+CQ Entry中有SQ ID和command ID用于唯一标识已经完成的命令。
+
+主机发送IO命令前，首先会创建SQ和CQ。CQ要先于对应的SQ创建。
+
+##6.2 命令的提交和完成机制
+###6.2.1 命令处理流程
+处理流程如下：
+
+	1 主机在SQ中合适的内存地址填写命令字。
+	2 更新SQ的Tail Doorbell（用于通知controller新命令已发出）。
+	3 Controller从SQ内存中读取一条或多条命令（会涉及SQ优先级，读取顺序等）。
+	4 Controller继续执行未完成的命令，各条命令的完成时间是不确定的，可乱序。
+	5 一条命令完成后，一条CQ Entry会写入对应的CQ。
+	6 若中断可用，Controller会向主机发送一次中断，通知一条命令完成。
+	7 主机读取并处理CQ中的CQ Entry。
+	8 处理完CQ Entry后，主机将CQ Head Doorbell向前推进，表示处理已经完成。一次可能处理多个CQ Entry。
+
+
+###6.2.2 主机如何创建一条命令
+主机创建命令前，首先检查对应的SQ是否为FULL，当有可用的SQ Entry可用时，继续以下步骤:
+
+	a 
+
+
+##6.3 复位
+
+
+##6.4 队列管理
 
