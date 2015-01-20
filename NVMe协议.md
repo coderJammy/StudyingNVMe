@@ -534,4 +534,23 @@ CQ Entry中有SQ ID和command ID用于唯一标识已经完成的命令。
 
 
 ##6.4 队列管理
+**创建和初始化**
+
+I/O SQ 和 I/O CQ要经过创建和初始化后方可使用，步骤如下：
+
+	1 初始化Admin SQ和Admin CQ(设置寄存器AQA，ASQ，和ACQ).
+	2 通过Admin SQ发送Set Features(with NVME_FEAT_NUM_QUEUES)命令，得到设备支持的QUEUE个数。
+	3 读寄存器获得队列大小（CAP.MQES）和队列内存是否需要物理连续(CAP.CQR)等属性。
+	4 根据NVME_FEAT_NUM_QUEUES，CAP.MQES，CAP.CQR等参数或限制创建CQ并向设备发送创建CQ命令。
+	5 类似4创建SQ。
+
+此时I/O SQ 和 I/O CQ创建和初始化完毕，主机可通过其发送命令。
+
+**6.4.2 队列协作**
+
+假设有一对Admin Queue和多对I/O Queue，Admin SQ和Admin CQ用于管理整个控制器，某一对IO CQ和IO SQ则用于读写操作。IO Queue的个数可能会根据CPU核心数或线程数来分配。
+
+**6.4.3 队列终止**
+
+要放弃执行一大批命令，协议会建议删除对应的IO SQ并重新建立。
 
