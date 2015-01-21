@@ -14,7 +14,7 @@ NVM Express协议描述了如何通过寄存器接口访问NVM子系统，并定
 
 ##1.2 (字母，词组，缩写等)定义
 
-	- Admin Queue ： 管理队列。指ID为0的提交队列(Submision Queue)和完成队列(Completion Queue)。或称为Amdin Submision Queue和Amdin Completion Queue。主机通过此队列发送Admin命令和接收命令状态。
+	- Admin Queue ： 管理队列。指ID为0的提交队列(Submission Queue)和完成队列(Completion Queue)。或称为Amdin Submission Queue和Amdin Completion Queue。主机通过此队列发送Admin命令和接收命令状态。
 
 	- arbitration burst : 提交队列一次可提交的最大命令个数。
 
@@ -33,7 +33,7 @@ Controller Registers是一段存储器空间，可以接次序访问或按变量
 	0x003C +--------------------------+
 	       |    CMBSZ                 |
 	0x0040 +--------------------------+
-	       |    Reseved               |
+	       |    Reserved               |
 	0x0F00 +--------------------------+
 	       |    Command Set Specific  |
 	0x1000 +--------------------------+  ---
@@ -98,7 +98,7 @@ CAP寄存器定义了控制器基本的功能。如：
 ###2.1.4 INTCS (Interrupt Mask Clear)
 中断屏蔽清除寄存器。
 
-INTMS和INTCS在下列中断模式下用作中断屏蔽使能和清除（bit significant）。
+INTMS和INTCS在下列中断模式下用作中断屏蔽使能和清除(bit significant)
 
 	- pin-base interrupt
 	- single message MSI
