@@ -514,14 +514,14 @@ CQ Entry中有SQ ID和command ID用于唯一标识已经完成的命令。
 ###6.2.1 命令处理流程
 处理流程如下：
 
-	1 主机在SQ中合适的内存地址填写命令字。
-	2 更新SQ的Tail Doorbell（用于通知controller新命令已发出）。
-	3 Controller从SQ内存中读取一条或多条命令（会涉及SQ优先级，读取顺序等）。
-	4 Controller继续执行未完成的命令，各条命令的完成时间是不确定的，可乱序。
-	5 一条命令完成后，一条CQ Entry会写入对应的CQ。
-	6 若中断可用，Controller会向主机发送一次中断，通知一条命令完成。
-	7 主机读取并处理CQ中的CQ Entry。
-	8 处理完CQ Entry后，主机将CQ Head Doorbell向前推进，表示处理已经完成。一次可能处理多个CQ Entry。
+	1. 主机在SQ中合适的内存地址填写命令字。
+	2. 更新SQ的Tail Doorbell（用于通知controller新命令已发出）。
+	3. Controller从SQ内存中读取一条或多条命令（会涉及SQ优先级，读取顺序等）。
+	4. Controller继续执行未完成的命令，各条命令的完成时间是不确定的，可乱序。
+	5. 一条命令完成后，一条CQ Entry会写入对应的CQ。
+	6. 若中断可用，Controller会向主机发送一次中断，通知一条命令完成。
+	7. 主机读取并处理CQ中的CQ Entry。
+	8. 处理完CQ Entry后，主机将CQ Head Doorbell向前推进，表示处理已经完成。一次可能处理多个CQ Entry。
 
 
 ###6.2.2 主机如何创建一条命令
@@ -538,11 +538,12 @@ CQ Entry中有SQ ID和command ID用于唯一标识已经完成的命令。
 
 I/O SQ 和 I/O CQ要经过创建和初始化后方可使用，步骤如下：
 
-	1 初始化Admin SQ和Admin CQ(设置寄存器AQA，ASQ，和ACQ).
-	2 通过Admin SQ发送Set Features(with NVME_FEAT_NUM_QUEUES)命令，得到设备支持的QUEUE个数。
-	3 读寄存器获得队列大小（CAP.MQES）和队列内存是否需要物理连续(CAP.CQR)等属性。
-	4 根据NVME_FEAT_NUM_QUEUES，CAP.MQES，CAP.CQR等参数或限制创建CQ并向设备发送创建CQ命令。
-	5 类似4创建SQ。
+	1. 初始化Admin SQ和Admin CQ(设置寄存器AQA，ASQ，和ACQ).
+	2. 通过Admin SQ发送Set Features(with NVME_FEAT_NUM_QUEUES)命令，得到设备支持的QUEUE个数。
+	3. 读寄存器获得队列大小（CAP.MQES）和队列内存是否需要物理连续(CAP.CQR)等属性。
+	4. 根据NVME_FEAT_NUM_QUEUES，CAP.MQES，CAP.CQR等参数或限制创建CQ并向设备发送创建CQ命令。
+	5. 类似4创建SQ。
+
 
 此时I/O SQ 和 I/O CQ创建和初始化完毕，主机可通过其发送命令。
 
