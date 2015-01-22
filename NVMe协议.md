@@ -555,3 +555,91 @@ I/O SQ 和 I/O CQ要经过创建和初始化后方可使用，步骤如下：
 
 要放弃执行一大批命令，协议会建议删除对应的IO SQ并重新建立。
 
+##6.5 中断
+
+##6.6 控制器初始化和关闭
+**初始化**
+
+上电后Controller需经过初始化才能发送第一条命令，初始化流程参考如下：
+
+	1. 以PCI或PCIE总线为例，首先配置总线寄存器。如电源管理选项，中断类型配置等。
+	2. 主机等待设备复位完成。(寄存器CSTS.RDY变为0)
+	3. 配置Admin Queue
+	4. 配置设备寄存器。（仲裁机制，页大小，命令集等配置）
+	5. 使能控制器（set CC.EN=1）。
+	6. 等待控制器Ready.(Ready to process commands)
+	7. 发Identify命令获得设备信息。
+	8. 主机计算IO QUEUE个数，配置中断（MSI，MSI-X）。
+	9. 创建IO QUEUE。先CQ后SQ。
+	10. 开启异步事件通知功能（若需要）。
+
+**Linux NVMe驱动如何初始化**
+
+~~~{.c}
+
+	static int nvme_dev_start(struct nvme_dev *dev)
+	{
+		int result;
+		...
+		result = nvme_dev_map(dev);
+		...
+		result = nvme_configure_admin_queue(dev);
+		...
+		result = nvme_setup_io_queues(dev);
+		...
+		return result;
+	}
+	static int nvme_dev_map(struct nvme_dev *dev)
+	{
+		...
+		struct pci_dev *pdev = dev->pci_dev;
+	
+		if (pci_enable_device_mem(pdev))
+			return result;
+		...
+		dev->bar = ioremap(pci_resource_start(pdev, 0), 8192);
+		...
+		cap = readq(&dev->bar->cap);
+		dev->q_depth = min_t(int, NVME_CAP_MQES(cap) + 1, NVME_Q_DEPTH);
+		dev->db_stride = 1 << NVME_CAP_STRIDE(cap);
+		dev->dbs = ((void __iomem *)dev->bar) + 4096;
+		...
+	}
+	static void nvme_cpu_workfn(struct work_struct *work)
+	{
+		struct nvme_dev *dev = container_of(work, struct nvme_dev, cpu_work);
+		if (dev->initialized)
+			nvme_assign_io_queues(dev);
+	}
+	static int nvme_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+	{
+		int result = -ENOMEM;
+		struct nvme_dev *dev;
+	
+		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+		...
+		dev->entry = kcalloc(num_possible_cpus(), sizeof(*dev->entry),
+									GFP_KERNEL);
+		...
+		dev->queues = kcalloc(num_possible_cpus() + 1, sizeof(void *),
+									GFP_KERNEL);
+		...
+		dev->io_queue = alloc_percpu(unsigned short);
+		...
+		INIT_WORK(&dev->cpu_work, nvme_cpu_workfn);
+		...
+		result = nvme_dev_start(dev);
+		...
+		result = nvme_dev_add(dev);
+		...
+		return result;
+	}
+~~~
+
+nvme_probe在驱动加载成功时会调用，分析以上代码可知
+
+	1. 驱动会为每一个CPU分配一对IO Queue。每对IO Queue有一个中断回调函数。
+	2. 获得设备的BAR空间，并将地址映射到IO空间上来。
+	3. 创建Admin Queue。检查CPU个数与设备最多支持的IO Queues，释放可能多分配的IO Queue。
+	4. IO Queue在每个CPU工作的时候各自创建，初始化时只设定工作函数。
+	5. 添加设备（Identify并添加盘符或设备等），见4.1.4。
