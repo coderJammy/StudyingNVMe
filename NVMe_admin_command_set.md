@@ -217,3 +217,134 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 
 ##2 创建I/O完成队列(Create I/O Completion Queue Command)
 
+###**命令字抽象**
+
+~~~{.c}
+
+	struct nvme_create_cq {
+		__u8			opcode;
+		__u8			flags;
+		__u16			command_id;
+		__u32			rsvd1[5];
+		__le64			prp1;
+		__u64			rsvd8;
+		__le16			cqid;
+		__le16			qsize;
+		__le16			cq_flags;
+		__le16			irq_vector;
+		__u32			rsvd12[4];
+	};
+~~~
+
+###**Linux驱动发送创建CQ命令**
+~~~{.c}
+
+	static int adapter_alloc_cq(struct nvme_dev *dev, u16 qid,
+							struct nvme_queue *nvmeq)
+	{
+		int status;
+		struct nvme_command c;
+		int flags = NVME_QUEUE_PHYS_CONTIG | NVME_CQ_IRQ_ENABLED;
+	
+		memset(&c, 0, sizeof(c));
+		c.create_cq.opcode = nvme_admin_create_cq;
+		c.create_cq.prp1 = cpu_to_le64(nvmeq->cq_dma_addr);
+		c.create_cq.cqid = cpu_to_le16(qid);
+		c.create_cq.qsize = cpu_to_le16(nvmeq->q_depth - 1);
+		c.create_cq.cq_flags = cpu_to_le16(flags);
+		c.create_cq.irq_vector = cpu_to_le16(nvmeq->cq_vector);
+	
+		status = nvme_submit_admin_cmd(dev, &c, NULL);
+		if (status)
+			return -EIO;
+		return 0;
+	}
+~~~
+
+分析以上代码：
+	
+	1. opcode  : 命令字。
+	2. prp1    : 指向CQ的64bits内存地址或者PRP List指针。
+	3. cqid    : CQ的唯一标识。
+	4. qsize   : 指的是CQ entry的个数。
+	5. cq_flag : 标志位。00b为1时prp1为一个64bits内存地址，否则为PRP表指针。01b为中断使能。
+	6. irq_vector : 中断向量。
+
+其中`flags = NVME_QUEUE_PHYS_CONTIG | NVME_CQ_IRQ_ENABLED;`
+即flags=0x02，表示中断使能，而prp1值是一个PRP表指针，CQ不是物理连续的。
+
+参数从何而来？
+这些参数包括：`nvmeq->cq_dma_addr`，`qid`，`nvmeq->q_depth`，，`nvmeq->cq_vector`。
+下面依次分析Linux驱动中的代码：
+
+**`nvmeq->cq_dma_addr`和`nvmeq->q_depth`**
+
+~~~{.c}
+
+	#define NVME_Q_DEPTH		1024
+
+	static int nvme_dev_map(struct nvme_dev *dev)
+	{
+		...
+		dev->q_depth = min_t(int, NVME_CAP_MQES(cap) + 1, NVME_Q_DEPTH);
+		...
+	}
+	static struct nvme_queue *nvme_alloc_queue(struct nvme_dev *dev, int qid,
+								int depth, int vector)
+	{
+		...
+		nvmeq->cqes = dma_alloc_coherent(dmadev, CQ_SIZE(depth),
+						&nvmeq->cq_dma_addr, GFP_KERNEL);
+		...
+		nvmeq->cq_vector = vector;
+		...
+	}
+~~~
+
+由此可见，首先确定CQ的深度，读取寄存器`CAP`获得NVM控制器最多支持Queue Entries个数，`NVME_Q_DEPTH`为驱动定义最多支持的Queue Entries个数，取较小值。然后向Linux内核申请内存，大小为`CQ_SIZE(depth)`，返回的物理地址存于`nvmeq->cq_dma_addr`，而`nvmeq->cqes`是映射的虚拟内存地址。
+
+**`qid`和`nvmeq->cq_vector`**
+
+~~~{.c}
+
+	static int nvme_create_queue(struct nvme_queue *nvmeq, int qid)
+	{
+		...
+		result = adapter_alloc_cq(dev, qid, nvmeq);
+		...
+	}
+	static void nvme_create_io_queues(struct nvme_dev *dev)
+	{
+		unsigned i, max;
+	
+		max = min(dev->max_qid, num_online_cpus());
+		for (i = dev->queue_count; i <= max; i++)
+			if (!nvme_alloc_queue(dev, i, dev->q_depth, i - 1))
+				break;
+	
+		max = min(dev->queue_count - 1, num_online_cpus());
+		for (i = dev->online_queues; i <= max; i++)
+			if (nvme_create_queue(raw_nvmeq(dev, i), i))
+				break;
+	}
+~~~
+
+可知`qid`从`dev->online_queues`向上递增，`dev->online_queues`为已经创建的Queue个数。而`nvmeq->cq_vector`作为中断向量。
+
+
+
+###**何时创建**
+
+函数调用关系：
+
+	nvme_cpu_workfn -> nvme_assign_io_queues -> 	nvme_create_io_queues ->	
+	nvme_create_queue ->adapter_alloc_cq
+
+初始化工作队列
+
+	INIT_WORK(&dev->cpu_work, nvme_cpu_workfn);
+
+nvme_cpu_workfn这个函数会在“一段时间”后被调用。这个“一段时间”则操作系统的调度有关。
+
+**Controller创建CQ命令处理流程**
+以QEMU为例
