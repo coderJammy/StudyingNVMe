@@ -22,7 +22,7 @@
 	};
 ~~~
 
-##1 Identify
+#1 Identify
 主机使用设备前，需首先获得设备的信息。Identify命令会从设备中读出4KB关于NVM子系统的数据。
 Identify命令格式如下：
 
@@ -47,7 +47,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	- cns=0x01 : Namespace Identify Data
 	- cns=0x02 : Namespace List
 
-###1.1 Controller Identify Struture
+##1.1 Controller Identify Struture
 
 ~~~{.c}
 	
@@ -97,7 +97,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	};
 ~~~
 
-###1.2 Namespace Identify Struture
+##1.2 Namespace Identify Struture
 
 ~~~{.c}
 
@@ -126,10 +126,10 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	};
 ~~~
 
-###1.3 Namespace List (spec 1.2)
+##1.3 Namespace List (spec 1.2)
 
 
-###1.4 HOST驱动如何发送Identify
+##1.4 HOST驱动如何发送Identify
 
 ~~~{.c}
 
@@ -178,7 +178,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 可见，HOST会首先读取Controller Identify信息，从而获得NN(Number of Namespaces)信息，然后依次读取Namespace Identify信息。
 
 
-###1.5 NVM设备如何处理Identify命令
+##1.5 NVM设备如何处理Identify命令
 以QEMU为例:
 
 ~~~{.c}
@@ -215,9 +215,9 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 关于Controller Identify Data和Namespace Identify Data则存于设备内存中，在设备启动或复位时进行初始化，外更详细代码参见QEMU源码。
 
 
-##2 创建I/O完成队列(Create I/O Completion Queue Command)
+#2 创建I/O完成队列(Create I/O Completion Queue Command)
 
-###**命令字抽象**
+##命令字抽象
 
 ~~~{.c}
 
@@ -236,7 +236,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 	};
 ~~~
 
-###**Linux驱动发送创建CQ命令**
+##Linux驱动发送创建CQ命令
 ~~~{.c}
 
 	static int adapter_alloc_cq(struct nvme_dev *dev, u16 qid,
@@ -333,7 +333,7 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 
 
 
-###**何时创建**
+##何时创建
 
 函数调用关系：
 
@@ -346,5 +346,126 @@ Identify命令可读取三类数据，由cns(Controller or Namespace Structure)�
 
 nvme_cpu_workfn这个函数会在“一段时间”后被调用。这个“一段时间”则操作系统的调度有关。
 
-**Controller创建CQ命令处理流程**
+##Controller创建CQ命令处理流程
+
 以QEMU为例
+
+~~~{.c}
+	
+	static void nvme_init_cq(NvmeCQueue *cq, NvmeCtrl *n, uint64_t dma_addr,
+	    uint16_t cqid, uint16_t vector, uint16_t size, uint16_t irq_enabled)
+	{
+	    cq->ctrl = n;
+	    cq->cqid = cqid;
+	    cq->size = size;
+	    cq->dma_addr = dma_addr;
+	    cq->phase = 1;
+	    cq->irq_enabled = irq_enabled;
+	    cq->vector = vector;
+	    cq->head = cq->tail = 0;
+	    QTAILQ_INIT(&cq->req_list);
+	    QTAILQ_INIT(&cq->sq_list);
+	    msix_vector_use(&n->parent_obj, cq->vector);
+	    n->cq[cqid] = cq;
+	    cq->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, nvme_post_cqes, cq);
+	}
+	
+	static uint16_t nvme_create_cq(NvmeCtrl *n, NvmeCmd *cmd)
+	{
+	    NvmeCQueue *cq;
+	    NvmeCreateCq *c = (NvmeCreateCq *)cmd;
+	    uint16_t cqid = le16_to_cpu(c->cqid);
+	    uint16_t vector = le16_to_cpu(c->irq_vector);
+	    uint16_t qsize = le16_to_cpu(c->qsize);
+	    uint16_t qflags = le16_to_cpu(c->cq_flags);
+	    uint64_t prp1 = le64_to_cpu(c->prp1);
+	
+	    if (!cqid || (cqid && !nvme_check_cqid(n, cqid))) {
+	        return NVME_INVALID_CQID | NVME_DNR;
+	    }
+	    if (!qsize || qsize > NVME_CAP_MQES(n->bar.cap)) {
+	        return NVME_MAX_QSIZE_EXCEEDED | NVME_DNR;
+	    }
+	    if (!prp1) {
+	        return NVME_INVALID_FIELD | NVME_DNR;
+	    }
+	    if (vector > n->num_queues) {
+	        return NVME_INVALID_IRQ_VECTOR | NVME_DNR;
+	    }
+	    if (!(NVME_CQ_FLAGS_PC(qflags))) {
+	        return NVME_INVALID_FIELD | NVME_DNR;
+	    }
+	
+	    cq = g_malloc0(sizeof(*cq));
+	    nvme_init_cq(cq, n, prp1, cqid, vector, qsize + 1,
+	        NVME_CQ_FLAGS_IEN(qflags));
+	    return NVME_SUCCESS;
+	}
+~~~
+
+分析知
+
+	1. 首先分解命令，提取信息。
+	2. 检查命令参数的合法性。
+	3. QEMU只支持PRP1为PRP表指针。
+	4. 创建CQ结构体保存要创建的CQ的信息并加入列表。
+	5. 配置使用中断向量。
+	6. 创建定时器，定时执行`nvme_post_cqes`。
+	7. `nvme_post_cqes`则扫描对应的SQ，若执行完毕，自动回CQ Entries给主机。
+
+#3 创建I/O提交队列(Create I/O Submission Queue Command)	
+
+##命令字抽象
+
+~~~{.c}
+
+	struct nvme_create_sq {
+		__u8			opcode;
+		__u8			flags;
+		__u16			command_id;
+		__u32			rsvd1[5];
+		__le64			prp1;
+		__u64			rsvd8;
+		__le16			sqid;
+		__le16			qsize;
+		__le16			sq_flags;
+		__le16			cqid;
+		__u32			rsvd12[4];
+	};
+~~~
+
+##Linux驱动发送创建SQ命令
+
+~~~{.c}
+
+	static int adapter_alloc_sq(struct nvme_dev *dev, u16 qid,
+							struct nvme_queue *nvmeq)
+	{
+		int status;
+		struct nvme_command c;
+		int flags = NVME_QUEUE_PHYS_CONTIG | NVME_SQ_PRIO_MEDIUM;
+	
+		memset(&c, 0, sizeof(c));
+		c.create_sq.opcode = nvme_admin_create_sq;
+		c.create_sq.prp1 = cpu_to_le64(nvmeq->sq_dma_addr);
+		c.create_sq.sqid = cpu_to_le16(qid);
+		c.create_sq.qsize = cpu_to_le16(nvmeq->q_depth - 1);
+		c.create_sq.sq_flags = cpu_to_le16(flags);
+		c.create_sq.cqid = cpu_to_le16(qid);
+	
+		status = nvme_submit_admin_cmd(dev, &c, NULL);
+		if (status)
+			return -EIO;
+		return 0;
+	}
+~~~
+
+可见创建SQ命令与创建CQ命令类似。创建SQ时要指定对应的CQID（即`cqid`），3.10.18版的Linux内核代码中，SQ和CQ成对出现，SQID与CQID一致。而协议当中支持多个SQ对应一个CQ的情况。
+另外，创建SQ时的flags中，bit[0]为物理连续标志位。为1时表示SQ的物理地址连接，`prp1`为指向这个缓存的指针。为0时表示`prp1`为一个PRP表指针。bit[2:1]为SQ的优先级（只在仲裁机制支持时有效）：
+	
+	00b : Urgent
+	01b : High
+    10b : Medium
+	11b : Low
+
+#删除I/O提交队列(Delete I/O Submission Queue Command)	
